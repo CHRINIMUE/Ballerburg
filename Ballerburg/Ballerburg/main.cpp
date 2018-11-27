@@ -3,116 +3,171 @@
 #include <time.h>
 #include <stdlib.h>
 
-#define GAMENAME "Ballerburg "
-#define VERSION "V0.1"
-#define WINHEIGHT 800
-#define WINWIDTH 1200
+#define GAMENAME	"Ballerburg "	
+#define VERSION		"V0.1"	
+#define WINHEIGHT	800	
+#define WINWIDTH	1200	
+#define ROCK_POINTS	50				// Amount of points between rock left - rock middle / rock middle - rock left
+
+#define DEBUG 5
+
 
 using namespace cv;
 using namespace std;
 
 
-int main()
-{
+String windowName = GAMENAME;
+int winHeight = WINHEIGHT;
+int winWidth = WINWIDTH;
+
+// Calc the max disctance for random - 0 for x; 1 for y
+int CalcDistance(int ax, int ay, int bx, int by, int counter, int amountPoints, int xy) {
+	int restPoints = amountPoints - counter;	// Calc the remaining Points to generate
+	int maxRand;
+
+	if (restPoints > 1) { 
+		if (xy == 0) { // x cordinate
+			int distance = fabs(bx - ax);
+			maxRand = distance / restPoints;
+		}
+		else { // y cordinate
+			int distance = fabs(ay - by);
+			maxRand = distance / (restPoints + 1);
+		}
+	}
+	else {
+		if (xy == 0) { // x cordinate
+			int distance = fabs(bx - ax);
+			maxRand = (distance  + 1) / 2;
+			if (distance == 0)
+				return 1;
+		}
+		else { // y cordinate
+			int distance = fabs(ay - by);
+			maxRand = (distance + 1) / 2;
+			if (distance == 0)
+				return 1;
+		}
+	}
+
+	#ifdef DEBUG // LOG: Show the position of Point
+	printf("y:%d %d,%d x %d,%d \t restPoints=%d \tmaxRand=%d\n", xy, ax, ay, bx, by, restPoints, maxRand);
+	#endif
+
+	return maxRand; // return the max X or Y offset
+}
+
+// Draw the Rock
+void DrawRock(Mat frame, int groundHeight) {
+
+	int rockHeight	= rand() % ((groundHeight - 100) - (winHeight / 8)) + (winHeight / 8);			// generate the height of the rock
+	int rockLeft	= rand() % (WINWIDTH / 3 - 175) + 175;											// generate start of the rock in 1/3 and 150px away from the border
+	int rockRight	= rand() % (WINWIDTH - ((WINWIDTH / 3 * 2) + 175)) + ((WINWIDTH / 3 * 2) - 1);	// generate end of the rock in 3/3 and 150px away from the border
+	int rockWidth	= rockRight - rockLeft;			// Calc the width (X) of the rock
+	int rockMiddle	= (rockWidth / 2) + rockLeft;	// Calc the middle x cordinate of the rock
+	int yDistance = groundHeight - rockHeight;		// Height of the rock
+	int xDistance = rockMiddle - rockLeft;			// Widht of the rock (half)
+	int yDistancePerPoint;							// Max size between two Y points
+	int xDistancePerPoint;							// Max size between two X points
+
+	// Create the Rock
+	Point rock_points[1][500];
+	int counter = 0;
+	rock_points[0][counter++] = Point(rockLeft, groundHeight); // Left ground point
+
+	// Generate the points between left ground and middle height of the rock
+	while (1) {
+		// Distance betweent left ground and middle height
+		yDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockMiddle, rockHeight, counter - 1, ROCK_POINTS, 1);
+		xDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockMiddle, rockHeight, counter - 1, ROCK_POINTS, 0);
+
+		// generate offset
+		int offsety = rand() % (yDistancePerPoint);
+		int offsetx = rand() % (xDistancePerPoint);
+
+		if (!(counter - 10 >= ROCK_POINTS)) {
+			if ((offsetx + rock_points[0][counter - 1].x > rockMiddle) || (rock_points[0][counter - 1].y - offsety < rockHeight)) {
+				break; // stop crating points, if reached the middle or the rockHeight
+			}
+			else {
+				rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety);
+				counter++;
+			}
+		}
+		else {
+			break; // Stop generating points if counter is "-10"
+		}
+	}
+
+	rock_points[0][counter++] = Point(rockMiddle, rockHeight);
+	
+	// generate points between middle height and right bottom of the rock
+	while (1) {
+		// Distance betweent middle height and right ground
+		yDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockRight, groundHeight, counter - 1 - ROCK_POINTS, ROCK_POINTS, 1);
+		xDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockRight, groundHeight, counter - 1 - ROCK_POINTS, ROCK_POINTS, 0);
+
+		int offsety = rand() % (yDistancePerPoint) - (yDistancePerPoint + 1);
+		int offsetx = rand() % (xDistancePerPoint);
+
+
+		if (!(counter - 10 >= ROCK_POINTS * 2)) {
+			if ((offsetx + rock_points[0][counter - 1].x > rockRight) || (rock_points[0][counter - 1].y - offsety > groundHeight)) {
+				break;
+			}
+			else {
+				rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety);
+				counter++;
+			}
+		}
+		else {
+			break; // Stop generating points if counter is "-10"
+		}
+	}
+
+	rock_points[0][counter++] = Point(rockRight, groundHeight);
+	rock_points[0][counter++] = Point(rockMiddle, groundHeight);
+	rock_points[0][counter] = Point(rockLeft, groundHeight);
+	const Point* pRock[1] = { rock_points[0] };
+	int numberOfPointsRock[] = { counter };
+	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(200, 200, 200), 8);
+
+	#ifdef DEBUG // For debug log:
+	printf("groundHeight: %i\n", groundHeight);
+	printf("Random rockHeight: %i\n", rockHeight);
+	printf("Random rockLeft: %i\n", rockLeft);
+	printf("Random rockRight: %i\n", rockRight);
+	printf("Calc rockMiddle: %i\n", rockMiddle);
+	printf("Nr. of points generated: %d\n", counter - 4);
+	printf("Distance Y (height): %d\n", yDistance);
+	printf("Distance X (widht): %d\n", xDistance);
+	#endif	
+}
+
+int main() {
 	//Init
+	#ifdef DEBUG
+	srand(DEBUG);
+	#else
 	srand(time(NULL));
-	//srand(6);
+	#endif
 
 	// Main Variables
-	String windowName = GAMENAME;
-	int winHeight = WINHEIGHT;
-	int winWidth = WINWIDTH;
-	int groundHeight = winHeight - (winHeight / 8); //generate the bottom ground
-	int rockHeight = rand() % ((groundHeight - 100) - (winHeight/4)) + (winHeight/4);
-	int rockLeft = rand() % WINWIDTH/3; //generat start of the rock in 1/3
-	int rockRight = rand() % ((WINWIDTH )- (WINWIDTH/3*2))+ (WINWIDTH / 3 * 2); //generate start of the rock in 3/3
-	int rockWidth = rockRight - rockLeft;
-	int rockMiddle = (rockWidth/2) + rockLeft;
+	int groundHeight	= winHeight - (winHeight / 8);		// generate the bottom ground
+	int xPosition		= 20;								// X Position of castle
+	int yPosition		= 700;								// Y Position of castle
 
 	Mat frame(winHeight, winWidth, CV_8UC3, Scalar(250, 250, 250));
-	
+
 	// draw the ground
 	for (int y = winHeight; y > groundHeight; y--) {
 		for (int x = 0; x < winWidth; x++) {
 			rectangle(frame, Rect(x, y, 1, 1), Scalar(200, 200, 200), 1, 8, 0);
 		}
 	}
-	//draw the rock (BOX)
-	/*
-	for (int y = groundHeight; y > rockHeight; y--) {
-		for (int x = rockLeft; x < rockRight; x++) {
-			rectangle(frame, Rect(x, y, 1, 1), Scalar(0, 0, 255), 1, 8, 0);
-		}
-	}*/
 
-	// Log:
-	printf("groundHeight: %i\n", groundHeight);
-	printf("Random rockHeight: %i\n", rockHeight);
-	printf("Random rockLeft: %i\n", rockLeft);
-	printf("Random rockRight: %i\n", rockRight);
-	printf("Calc rockMiddle: %i\n", rockMiddle);
-
-	// Variables for rock generator
-	int yDistance			= groundHeight - rockHeight;		// Height of the rock
-	int xDistance			= rockMiddle - rockLeft;			// Widht of the rock (half)
-	int maxSize				= 7;								// Average of distance between two points
-	int xyMinPoints;
-
-	if (xDistance > yDistance) 
-		xyMinPoints = xDistance / maxSize;						// Widht > Height -> Min. width points
-	else 
-		xyMinPoints = yDistance / maxSize;						// Height > Width -> Min. height points
-
-	int yDistancePerPoint	= yDistance / xyMinPoints;			// Max size between two points
-	int xDistancePerPoint	= xDistance / xyMinPoints;			// Max size between two points
-
-	// Create the Rock
-	Point rock_points[1][500];
-	int counter = 0;
-	rock_points[0][counter++] = Point(rockLeft, groundHeight);
-	//generate dynamic rock left from middle
-	while (1) { 
-		int offsety = rand() % (yDistancePerPoint * 2);
-		int offsetx = rand() % (xDistancePerPoint * 2);
-		if ((offsetx + rock_points[0][counter - 1].x > rockMiddle) || (rock_points[0][counter - 1].y - offsety < rockHeight)) {
-			break; // stop crating points, if reached the middle or the rockHeight
-		}
-		else {
-			rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety);
-			counter++;
-		}
-	}
-	rock_points[0][counter++] = Point(rockMiddle, rockHeight);
-	// generate dynamic rock right from middle
-	while (1) { 
-		int offsety = rand() % (yDistancePerPoint * 2) - (yDistancePerPoint * 2);
-		int offsetx = rand() % (xDistancePerPoint * 2);
-		if ((offsetx + rock_points[0][counter - 1].x > rockRight) || (rock_points[0][counter - 1].y - offsety > groundHeight)) {
-			break;
-		}
-		else {
-			rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety);
-			counter++;
-		}
-	}
-	rock_points[0][counter++] = Point(rockRight, groundHeight);
-	rock_points[0][counter++] = Point(rockMiddle, groundHeight);
-	rock_points[0][counter]   = Point(rockLeft, groundHeight);
-	const Point* pRock[1] = { rock_points[0] };
-	int numberOfPointsRock[] = { counter };
-	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(200, 200, 200), 8);
-
-	//Log:
-	printf("Nr. of points generated: %d\n", counter);
-	printf("Distance Y (height): %d\n", yDistance);
-	printf("Distance X (widht): %d\n", xDistance);
-	printf("Min. Points: %d\n", xyMinPoints);
-	printf("Max X per step: %d\n", xDistancePerPoint);
-	printf("Max Y per step: %d\n", yDistancePerPoint);
-
-
-	int xPosition = 20;
-	int yPosition = 700;
+	// draw the rock
+	DrawRock(frame, groundHeight);
 
 	// Draw the Castle
 	Point castle[1][100];
@@ -180,6 +235,15 @@ int main()
 	rectangle(frame, Rect(100, 100, 40, 60), Scalar(255, 0, 0), 1, 8, 0);
 	rectangle(frame, Rect(200, 200, 40, 60), Scalar(255, 0, 0), 1, 8, 0);
 	*/
+
+	//draw the rock (BOX)
+/*
+for (int y = groundHeight; y > rockHeight; y--) {
+	for (int x = rockLeft; x < rockRight; x++) {
+		rectangle(frame, Rect(x, y, 1, 1), Scalar(0, 0, 255), 1, 8, 0);
+	}
+}*/
+
 
 	namedWindow(windowName);
 	imshow(windowName, frame);
