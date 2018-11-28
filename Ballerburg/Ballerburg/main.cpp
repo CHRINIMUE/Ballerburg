@@ -12,6 +12,8 @@
 // Set colors
 #define COLOR_BACKGROUND 250, 250, 250
 #define COLOR_BALL 250, 0, 0
+#define COLOR_ROCK 200, 200, 200
+#define COLOR_CASTLE 0, 0, 255
 
 //#define DEBUG 18
 
@@ -101,9 +103,7 @@ void DrawRock(Mat frame, int groundHeight) {
 			break; // Stop generating points if counter is "-10"
 		}
 	}
-
 	rock_points[0][counter++] = Point(rockMiddle, rockHeight);
-
 	// generate points between middle height and right bottom of the rock
 	while (1) {
 		// calc max distance for X and Y
@@ -127,11 +127,10 @@ void DrawRock(Mat frame, int groundHeight) {
 		}
 	}
 
-
 	rock_points[0][counter++] = Point(rockRight, groundHeight);		// add right ground point
 	const Point* pRock[1] = { rock_points[0] };
 	int numberOfPointsRock[] = { counter };							// number of points to draw
-	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(200, 200, 200), 8);	// draw the rock
+	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(COLOR_ROCK), 8);	// draw the rock
 
 	#ifdef DEBUG // LOG: 
 	printf("groundHeight: %i\n", groundHeight);
@@ -211,7 +210,7 @@ void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
 	// Draw the Castle
 	const Point* pCastle[1] = { castle[0] };
 	int numberOfPointsCastle[] = { counter };
-	fillPoly(frame, pCastle, numberOfPointsCastle, 1, Scalar(0, 0, 255), 8);
+	fillPoly(frame, pCastle, numberOfPointsCastle, 1, Scalar(COLOR_CASTLE), 8);
 }
 
 int main() {
@@ -232,72 +231,63 @@ int main() {
 	// draw the ground
 	for (int y = winHeight; y > groundHeight; y--) {
 		for (int x = 0; x < winWidth; x++) {
-			rectangle(frame, Rect(x, y, 1, 1), Scalar(200, 200, 200), 1, 8, 0);
+			rectangle(frame, Rect(x, y, 1, 1), Scalar(COLOR_ROCK), 1, 8, 0);
 		}
 	}
 
 	// draw the rock
 	DrawRock(frame, groundHeight);
 
-	// Later: read, remove and add specific pixel 
-	/*
-	for (int y=200; y<500; y++)
-		for (int x=200; x<=300; x++)
-			// set pixel
-			frame.at<Vec3b>(Point(x, y)) = Vec3b(0,0,255); 
-
-	Vec3b color = frame.at<Vec3b>(Point(300, 200));
-	*/
-	/*
-	rectangle(frame, Rect(20, 20, 40, 60), Scalar(255, 0, 0), 1, 8, 0);
-	rectangle(frame, Rect(100, 100, 40, 60), Scalar(255, 0, 0), 1, 8, 0);
-	rectangle(frame, Rect(200, 200, 40, 60), Scalar(255, 0, 0), 1, 8, 0);
-	*/
-
-	//draw the rock (BOX)
-	/*
-	for (int y = groundHeight; y > rockHeight; y--) {
-		for (int x = rockLeft; x < rockRight; x++) {
-			rectangle(frame, Rect(x, y, 1, 1), Scalar(0, 0, 255), 1, 8, 0);
-		}
-	}*/
-
 	// Draw two castle
 	DrawCastle(frame, 20, groundHeight, false);
 	DrawCastle(frame, WINWIDTH - 20, groundHeight, true);
 
+	// Der blaue Komenet
+	int blauerkomet = rand() % 1000000;
+	if (blauerkomet == 10) {
+		for (int i = 0; i < WINWIDTH + 30; i++) {
+			circle(frame, Point(i, 70), 10, Scalar(255, 0, 0), CV_FILLED, 8, 0);
+			imshow(windowName, frame);
+			waitKey(10);
+			circle(frame, Point(i - 30, 70), 10, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
+		}
+	}
+
 	imshow(windowName, frame);
+	int xPos = 170;
+	int yPos = 600;
 
 	// Draw the cannonball
 	// Mat, Point, Radius, Color, Dthickness, lineType, shift
-	for (int x = 50; x <= WINWIDTH; x++) {
-		int y = ((x - (WINWIDTH / 2)) * (x - (WINWIDTH / 2))) * 0.0031;
-
-		#ifdef DEBUG
-		printf("%dx%d\n", x, y);
-		#endif	
+	for (int x = xPos; x < WINWIDTH; x++) {
+		//int y = ((x - (WINWIDTH / 2)) * (x - (WINWIDTH / 2))) * 0.0031;
+		int y = 0.001 * pow((x - xPos), 2) - (x - xPos) + yPos;
 
 		circle(frame, Point(x, y), 10, Scalar(COLOR_BALL), CV_FILLED, 8, 0);
 		imshow(windowName, frame);
 		#ifdef DEBUG
-		
+		printf("%dx%d\n", x, y);
 		#else
 		waitKey(3);
 		circle(frame, Point(x, y), 10, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
 		#endif
-		imshow(windowName, frame);
-	}
 
-
-	// Der blaue Komenet
-	int blauerkomet = rand() % 10000000;
-	if (blauerkomet == 99) {
-		for (int i = 0; i < WINWIDTH; i++) {
-			circle(frame, Point(i, 100), 10, Scalar(255, 0, 0), CV_FILLED, 8, 0);
-			imshow(windowName, frame);
-			waitKey(33);
+		// Check hit
+		Vec3b color = frame.at<Vec3b>(Point(x, y));
+		printf("%d, %d\n", color, Vec3b(COLOR_CASTLE));
+		if (color == (Vec3b(COLOR_CASTLE))) {
+			printf("%d", color);
+			break;
 		}
-	}	
+		if (y > 700) {
+			break; 
+		} 
+		else if ((color == (Vec3b(COLOR_ROCK))) || ( color == ( Vec3b(COLOR_CASTLE)))) {
+			// TODO: Add exposion
+			circle(frame, Point(x, y), 10, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
+			break;
+		}
+	}
 	
 	waitKey(0);
 
