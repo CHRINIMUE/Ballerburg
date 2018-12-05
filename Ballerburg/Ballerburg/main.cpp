@@ -3,11 +3,20 @@
 #include <time.h>
 #include <stdlib.h>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+
+
 #define GAMENAME	"Ballerburg "	
 #define VERSION		"V0.1"	
 #define WINHEIGHT	800	
 #define WINWIDTH	1200	
 #define ROCK_POINTS	50				// Amount of points between rock left - rock middle / rock middle - rock left
+
+// Canon settings
+#define MAX_CANON_HITS 10
+#define CANON_BALL_RADIUS 5
 
 // Set colors
 #define COLOR_BACKGROUND 250, 250, 250
@@ -15,7 +24,7 @@
 #define COLOR_ROCK 200, 200, 200
 #define COLOR_CASTLE 0, 0, 255
 
-//#define DEBUG 18
+#define DEBUG 18
 
 
 using namespace cv;
@@ -25,7 +34,7 @@ String windowName = GAMENAME;
 int winHeight = WINHEIGHT;
 int winWidth = WINWIDTH;
 
-// Calc the max disctance for random - 0 for x; 1 for y
+// Calc the max disctance for random offset -> 0 for x; 1 for y
 int CalcDistance(int ax, int ay, int bx, int by, int counter, int amountPoints, int xy) {
 	int restPoints = amountPoints - counter;	// Calc the remaining Points to generate
 	int maxRand;
@@ -213,6 +222,54 @@ void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
 	fillPoly(frame, pCastle, numberOfPointsCastle, 1, Scalar(COLOR_CASTLE), 8);
 }
 
+	/****************************************
+	Possible return values for check_collision:
+	-1:	No Hit
+	1:	Hit Castle
+	2:	Hit Rock
+	*****************************************/
+int check_collistion(int x, int y, Mat frame) {
+	double epsilon = M_PI / 8.0;
+	for (double alpha = 0.0; alpha <= 2 * M_PI; alpha += epsilon) {
+		double xPositionRadius = CANON_BALL_RADIUS * cos(alpha);
+		double yPositionRadius = CANON_BALL_RADIUS * sin(alpha);
+				
+		frame.at<Vec3b>((int)(y + yPositionRadius), (int)(x + xPositionRadius)) = Vec3b(0, 0, 0);
+		// Check hit for every point
+		if (frame.at<Vec3b>((int)(y + yPositionRadius), (int)(x + xPositionRadius)) == Vec3b(COLOR_CASTLE)) {
+			// TODO: Add explosion
+			#ifdef DEBUG
+			printf("Hit TRUE: Castle\n");
+			frame.at<Vec3b>((int)(y + yPositionRadius), (int)(x + xPositionRadius)) = Vec3b(0, 0, 0);
+			imshow(windowName, frame);
+			waitKey(10);
+			#endif		
+			return 1;
+		}
+		else if (frame.at<Vec3b>((int)(y + yPositionRadius + 1), (int)(x + xPositionRadius + 1)) == Vec3b(COLOR_ROCK)) {
+			// TODO: Add explosion
+			#ifdef DEBUG
+			printf("Hit TRUE: Rock\n");
+			frame.at<Vec3b>((int)(y + yPositionRadius), (int)(x + xPositionRadius)) = Vec3b(0, 0, 0);
+			imshow(windowName, frame);
+			waitKey(10);
+			#endif
+			return 2;
+		}
+		else {
+			#ifdef DEBUG
+			printf("Hit FALSE\n");
+			#endif
+		}
+	}
+
+	#ifdef DEBUG
+	printf("Middle Hit Check Position: %i, %i\n", x, y);
+	#endif
+
+	return -1;
+}
+
 int main() {
 	//Init
 	#ifdef DEBUG
@@ -254,39 +311,33 @@ int main() {
 	}
 
 	imshow(windowName, frame);
+
+	// Start Position of Canon Ball
 	int xPos = 170;
 	int yPos = 600;
 
 	// Draw the cannonball
-	// Mat, Point, Radius, Color, Dthickness, lineType, shift
-	for (int x = xPos; x < WINWIDTH; x++) {
-		//int y = ((x - (WINWIDTH / 2)) * (x - (WINWIDTH / 2))) * 0.0031;
-		int y = 0.001 * pow((x - xPos), 2) - (x - xPos) + yPos;
+	int hitCounter = 0;
+	for (int x = xPos; x < WINWIDTH; x++) {		
+		int y = (int)(0.001 * pow((x - xPos), 2) - (x - xPos) + yPos);
 
-		circle(frame, Point(x, y), 10, Scalar(COLOR_BALL), CV_FILLED, 8, 0);
+		int checkHitResult = check_collistion(x, y, frame);
+		if ((checkHitResult == 1) || (checkHitResult == 2)) {
+			hitCounter++;
+			if (hitCounter >= MAX_CANON_HITS) {
+				break;
+			}
+		}
+
+		// Mat, Point, Radius, Color, Dthickness, lineType, shift
+		circle(frame, Point(x, y), CANON_BALL_RADIUS, Scalar(COLOR_BALL), CV_FILLED, 8, 0);
 		imshow(windowName, frame);
-		#ifdef DEBUG
-		printf("%dx%d\n", x, y);
-		#else
-		waitKey(3);
-		circle(frame, Point(x, y), 10, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
-		#endif
+		waitKey(30);
+		circle(frame, Point(x, y), CANON_BALL_RADIUS, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
 
-		// Check hit
-		Vec3b color = frame.at<Vec3b>(Point(x, y));
-		printf("%d, %d\n", color, Vec3b(COLOR_CASTLE));
-		if (color == (Vec3b(COLOR_CASTLE))) {
-			printf("%d", color);
-			break;
-		}
-		if (y > 700) {
-			break; 
-		} 
-		else if ((color == (Vec3b(COLOR_ROCK))) || ( color == ( Vec3b(COLOR_CASTLE)))) {
-			// TODO: Add exposion
-			circle(frame, Point(x, y), 10, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
-			break;
-		}
+		#ifdef DEBUG
+		printf("Canon Ball Position %i, %i\n", x, y);
+		#endif
 	}
 	
 	waitKey(0);
