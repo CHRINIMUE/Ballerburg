@@ -6,8 +6,6 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-
-
 #define GAMENAME	"Ballerburg "	
 #define VERSION		"V0.1"	
 #define WINHEIGHT	800	
@@ -236,8 +234,9 @@ void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
 	-1:	No Hit
 	1:	Hit Castle
 	2:	Hit Rock
+	3:	Outside the window
 	*****************************************/
-int check_collistion(int x, int y, Mat frame) {
+int CheckCollision(int x, int y, Mat frame) {
 	int checkResult = -1;
 	double epsilon = M_PI / 8.0;
 	for (double alpha = 0.0; alpha <= 2 * M_PI; alpha += epsilon) {
@@ -245,13 +244,19 @@ int check_collistion(int x, int y, Mat frame) {
 		double yPositionRadius = CANON_BALL_RADIUS * sin(alpha); // Y offset of the circle
 
 		// Check hit for every point of the circle hitbox
-		if (frame.at<Vec3b>((int)(y + yPositionRadius), (int)(x + xPositionRadius)) == Vec3b(COLOR_CASTLE)) {
+		if ( (x + xPositionRadius + 1 <= 0) || (x + xPositionRadius + 1 >= WINWIDTH) || ((int)(y + yPositionRadius + 1) <= 0) || ((int)(y + yPositionRadius + 1) >= WINHEIGHT)) {
+			checkResult = 3;
+			break;
+		} 
+		else if (frame.at<Vec3b>((int)(y + yPositionRadius + 1), (int)(x + xPositionRadius + 1)) == Vec3b(COLOR_CASTLE)) {
 			// TODO: Add explosion
-			checkResult = 1; 
+			checkResult = 1;
+			break;
 		}
 		else if (frame.at<Vec3b>((int)(y + yPositionRadius + 1), (int)(x + xPositionRadius + 1)) == Vec3b(COLOR_ROCK)) {
 			// TODO: Add explosion
 			checkResult = 2;
+			break;
 		}
 	}
 
@@ -271,34 +276,89 @@ int check_collistion(int x, int y, Mat frame) {
 	return checkResult;
 }
 
+void DrawBall(Mat frame, int x, int y) {
+	// Mat, Point, Radius, Color, Dthickness, lineType, shift
+	circle(frame, Point(x, y), CANON_BALL_RADIUS, Scalar(COLOR_BALL), CV_FILLED, 8, 0);
+	imshow(windowName, frame);
+	waitKey(10);
+	circle(frame, Point(x, y), CANON_BALL_RADIUS + 1, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
+
+	#ifdef DEBUG
+	printf("Canon Ball Position %i, %i\n", x, y);
+	#endif
+}
+
 // Draw and calc the canon ball in Mat
-void ShootCanonBall(Mat frame) {
+void ShootCanonBall(Mat frame, bool turn) {
 	// Position of Canon (Start of flying Ball)
 	int xPos = 170;
 	int yPos = 600;
-
+	if (turn) {
+		xPos = 1030;
+		yPos = 600;
+	}
+	
 	// Draw the cannonball
 	int hitCounter = 0;
-	for (int x = xPos; x < WINWIDTH; x++) {
-		int y = (int)(0.001 * pow((x - xPos), 2) - (x - xPos) + yPos);
+	int roundCounter = 0;
+	int x;
+	int y = yPos;
+	int pulver = 5;		//TODO: add User input
+	int winkel = 20;	//TODO: add User input
+	float currentPulver = (int)pulver;
+	if (turn) { // Shot from right to left
+		for (x = xPos; x > 1; x -= 2) {
+			roundCounter++;
+			if (roundCounter >= winkel) {
+				currentPulver -= 0.5;
+				roundCounter = 0;
+			}
+			int distanceY = -currentPulver;
+			int distanceX = fabs(x - xPos);
+			y = y + distanceY;
+			printf("%d\n", distanceY);
+			DrawBall(frame, x, y);
 
-		int hitResult = check_collistion(x, y, frame);
-		if ((hitResult == 1) || (hitResult == 2)) {
-			hitCounter++;
-			if (hitCounter >= MAX_CANON_HITS) {
+			int hitResult = CheckCollision(x, y, frame);
+			if (hitResult == 3) {
+				printf("Ball outside of the Window\n");
 				break;
 			}
+			else if ((hitResult == 1) || (hitResult == 2)) {
+				hitCounter++;
+				if (hitCounter >= MAX_CANON_HITS) {
+					hitCounter = 0;
+					break;
+				}
+			}
 		}
+	}
+	else { // Shoot from left to right
+		for (x = xPos; x < WINWIDTH - 1; x += 2) {
+			roundCounter++;
+			if (roundCounter >= winkel) {
+				currentPulver -= 0.5;
+				roundCounter = 0;
+			}
+			int distanceY = -currentPulver;
+			int distanceX = fabs(x - xPos);
+			y = y + distanceY;
+			printf("%d\n", distanceY);
+			DrawBall(frame, x, y);
 
-		// Mat, Point, Radius, Color, Dthickness, lineType, shift
-		circle(frame, Point(x, y), CANON_BALL_RADIUS, Scalar(COLOR_BALL), CV_FILLED, 8, 0);
-		imshow(windowName, frame);
-		waitKey(30);
-		circle(frame, Point(x, y), CANON_BALL_RADIUS, Scalar(COLOR_BACKGROUND), CV_FILLED, 8, 0);
-
-		#ifdef DEBUG
-		printf("Canon Ball Position %i, %i\n", x, y);
-		#endif
+			int hitResult = CheckCollision(x, y, frame);
+			if (hitResult == 3) {
+				printf("Ball outside of the Window\n");
+				break;
+			}
+			else if ((hitResult == 1) || (hitResult == 2)) {
+				hitCounter++;
+				if (hitCounter >= MAX_CANON_HITS) {
+					hitCounter = 0;
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -338,10 +398,16 @@ int main() {
 	}
 
 	bool play = true;
+	bool turn = true;
 	int round = 1;
 	do {
-		ShootCanonBall(frame);
+		if (turn)
+			turn = false;
+		else
+			turn = true;
+		ShootCanonBall(frame, turn);
 		round++;
+		printf("%d \ttunrn result: %d\n", round, round % 2);
 	} while (play);
 
 	// Start Position of Canon Ball
