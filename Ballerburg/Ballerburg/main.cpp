@@ -7,14 +7,14 @@
 #include <math.h>
 
 #define GAMENAME	"Ballerburg "	
-#define VERSION		"V0.1"	
+#define VERSION		"V0.2"	
 #define WINHEIGHT	800	
 #define WINWIDTH	1200	
 #define GROUND_HEIGHT WINHEIGHT - (WINHEIGHT / 8)
 #define ROCK_POINTS	50				// Amount of points between rock left - rock middle / rock middle - rock left
 
 // Canon settings
-#define MAX_CANON_HITS 20
+#define MAX_CANON_HITS 2
 #define CANON_BALL_RADIUS 5
 
 // Set colors
@@ -289,7 +289,7 @@ void DrawBall(Mat frame, int x, int y) {
 }
 
 // Draw and calc the canon ball in Mat
-void ShootCanonBall(Mat frame, bool turn) {
+void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 	// Position of Canon (Start of flying Ball)
 	int xPos = 170;
 	int yPos = 600;
@@ -303,20 +303,20 @@ void ShootCanonBall(Mat frame, bool turn) {
 	int roundCounter = 0;
 	int x;
 	int y = yPos;
-	int pulver = 5;		//TODO: add User input
-	int winkel = 20;	//TODO: add User input
-	float currentPulver = (int)pulver;
+	float currentPulver = (int)*pulver;
 	if (turn) { // Shot from right to left
 		for (x = xPos; x > 1; x -= 2) {
 			roundCounter++;
-			if (roundCounter >= winkel) {
+			if (roundCounter >= *winkel) {
 				currentPulver -= 0.5;
 				roundCounter = 0;
 			}
 			int distanceY = -currentPulver;
 			int distanceX = fabs(x - xPos);
 			y = y + distanceY;
+			#ifdef DEBUG
 			printf("%d\n", distanceY);
+			#endif			
 			DrawBall(frame, x, y);
 
 			int hitResult = CheckCollision(x, y, frame);
@@ -336,14 +336,16 @@ void ShootCanonBall(Mat frame, bool turn) {
 	else { // Shoot from left to right
 		for (x = xPos; x < WINWIDTH - 1; x += 2) {
 			roundCounter++;
-			if (roundCounter >= winkel) {
+			if (roundCounter >= *winkel) {
 				currentPulver -= 0.5;
 				roundCounter = 0;
 			}
 			int distanceY = -currentPulver;
 			int distanceX = fabs(x - xPos);
 			y = y + distanceY;
+			#ifdef DEBUG
 			printf("%d\n", distanceY);
+			#endif			
 			DrawBall(frame, x, y);
 
 			int hitResult = CheckCollision(x, y, frame);
@@ -372,6 +374,53 @@ void InitGame(Mat frame) {
 	DrawCastle(frame, WINWIDTH - 20, groundHeight, true);
 }
 
+int UserInput(int** pulver, int** winkel) {
+	int c = waitKeyEx(100);
+	switch (c) {
+		case 13: return 0; break;
+		case 2490368: **pulver += 1; return 1; break; // cursor up
+		case 2621440: **pulver -= 1; return 1; break; // cursor down
+		case 2424832: **winkel += 1; return 1; break; // cursor left
+		case 2555904: **winkel -= 1; return 1; break; // cursor right      
+	}
+}
+
+void UserDialog(bool turn, int* pulver, int* winkel) {
+	char spulver[200];
+	char swinkel[200];
+	int exit = 1;
+	do {
+		Mat user(200, 400, CV_8UC3, Scalar(COLOR_BACKGROUND));
+		sprintf_s(spulver, "Pulver: %d", *pulver);
+		sprintf_s(swinkel, "Winkel: %d", *winkel);
+		putText(user,
+			spulver,
+			cvPoint(140, 30),
+			FONT_HERSHEY_COMPLEX_SMALL,
+			1, cvScalar(100, 100, 150),
+			1,
+			CV_AA);
+		putText(user,
+			swinkel,
+			cvPoint(140, 70),
+			FONT_HERSHEY_COMPLEX_SMALL,
+			1, cvScalar(100, 100, 150),
+			1,
+			CV_AA);
+		putText(user,
+			"Press ENTER to exit",
+			cvPoint(80, 130),
+			FONT_HERSHEY_COMPLEX_SMALL,
+			1, cvScalar(100, 100, 150),
+			1,
+			CV_AA);
+		exit = UserInput(&pulver, &winkel);
+		imshow("User Input", user);
+		waitKey(1);
+	} while (exit);
+	destroyWindow("User Input");
+}
+
 int main() {
 	//Init
 	#ifdef DEBUG
@@ -397,15 +446,26 @@ int main() {
 		}
 	}
 
+	int pulver1 = 5;
+	int pulver2 = 5;
+	int winkel1 = 20;
+	int winkel2 = 20;
+
 	bool play = true;
 	bool turn = true;
 	int round = 1;
 	do {
-		if (turn)
+		imshow(windowName, frame);
+		if (turn) {
 			turn = false;
-		else
+			UserDialog(turn, &pulver2, &winkel2);
+			ShootCanonBall(frame, turn, &pulver2, &winkel2);
+		}
+		else {
 			turn = true;
-		ShootCanonBall(frame, turn);
+			UserDialog(turn, &pulver1, &winkel1);
+			ShootCanonBall(frame, turn, &pulver1, &winkel1);
+		}
 		round++;
 		printf("%d \ttunrn result: %d\n", round, round % 2);
 	} while (play);
