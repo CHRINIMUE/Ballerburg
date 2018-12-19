@@ -74,7 +74,7 @@ int CalcDistance(int ax, int ay, int bx, int by, int counter, int amountPoints, 
 void DrawRock(Mat frame) {
 	// Main Variables
 	int groundHeight = GROUND_HEIGHT;	// generate the bottom ground
-	int rockHeight = rand() % ((groundHeight - 100) - (winHeight / 8)) + (winHeight / 8);			// generate the height of the rock
+	int rockHeight = rand() % ((groundHeight - 100) - (winHeight / 4)) + (winHeight / 4);			// generate the height of the rock
 	int rockLeft = rand() % (WINWIDTH / 3 - 200) + 200;												// generate start of the rock in 1/3 and 150px away from the border
 	int rockRight = rand() % (WINWIDTH - ((WINWIDTH / 3 * 2) + 200)) + ((WINWIDTH / 3 * 2) - 1);	// generate end of the rock in 3/3 and 150px away from the border
 	int rockWidth = rockRight - rockLeft;			// Calc the width (X) of the rock
@@ -148,18 +148,18 @@ void DrawRock(Mat frame) {
 	int numberOfPointsRock[] = { counter };							// number of points to draw
 	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(COLOR_ROCK), 8);	// draw the rock
 
-	#ifdef DEBUG // LOG: 
-	printf("groundHeight: %i\n", groundHeight);
-	printf("Random rockHeight: %i\n", rockHeight);
-	printf("Random rockLeft: %i\n", rockLeft);
-	printf("Random rockRight: %i\n", rockRight);
-	printf("Calc rockMiddle: %i\n", rockMiddle);
-	printf("Nr. of points generated: %d\n", counter - 2);
-	#endif	
+#ifdef DEBUG // LOG: 
+printf("groundHeight: %i\n", groundHeight);
+printf("Random rockHeight: %i\n", rockHeight);
+printf("Random rockLeft: %i\n", rockLeft);
+printf("Random rockRight: %i\n", rockRight);
+printf("Calc rockMiddle: %i\n", rockMiddle);
+printf("Nr. of points generated: %d\n", counter - 2);
+#endif	
 }
 
 // Draw Castle in Mat, X Position, Y Position and turn the caste if needed
-void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
+void DrawCastle(Mat frame, int xPosition, int yPosition, bool flip) {
 	Point castle[1][100]; // Init castle points
 	int counter = 0;
 
@@ -214,7 +214,7 @@ void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
 	castle[0][counter++] = Point(0, 0);
 
 	// mirror x coords
-	if (turn) {
+	if (flip) {
 		for (int i = 0; i < counter; i++)
 			castle[0][i].x *= -1;
 	}
@@ -229,32 +229,39 @@ void DrawCastle(Mat frame, int xPosition, int yPosition, bool turn) {
 	fillPoly(frame, pCastle, numberOfPointsCastle, 1, Scalar(COLOR_CASTLE), 8);
 }
 
-	/****************************************
-	Possible return values for check_collision:
-	-1:	No Hit
-	1:	Hit Castle
-	2:	Hit Rock
-	3:	Outside the window
-	*****************************************/
+/****************************************
+Possible return values for CheckCollision:
+0:	No Hit
+1:	Hit Castle
+2:	Hit Rock
+3:	Outside the window (left/right/bottom)
+4:	Outisde the window (top)
+*****************************************/
 int CheckCollision(int x, int y, Mat frame) {
-	int checkResult = -1;
+	int checkResult = 0;
 	double epsilon = M_PI / 8.0;
 	for (double alpha = 0.0; alpha <= 2 * M_PI; alpha += epsilon) {
 		double xPositionRadius = CANON_BALL_RADIUS * cos(alpha); // X offset of the circle
 		double yPositionRadius = CANON_BALL_RADIUS * sin(alpha); // Y offset of the circle
 
 		// Check hit for every point of the circle hitbox
-		if ( (x + xPositionRadius + 1 <= 0) || (x + xPositionRadius + 1 >= WINWIDTH) || ((int)(y + yPositionRadius + 1) <= 0) || ((int)(y + yPositionRadius + 1) >= WINHEIGHT)) {
+		if ((x + xPositionRadius + 1 <= 0) || (x + xPositionRadius + 1 >= WINWIDTH) || ((int)(y + yPositionRadius + 1) >= WINHEIGHT)) {
+			// Ball is outside the window (left/right/bottom)
 			checkResult = 3;
 			break;
-		} 
+		}
+		else if ((int)(y + yPositionRadius + 1) <= 0){
+			// Ball is outside the window (top) -> Ball should NOT stop
+			checkResult = 4;
+			break;
+		}
 		else if (frame.at<Vec3b>((int)(y + yPositionRadius + 1), (int)(x + xPositionRadius + 1)) == Vec3b(COLOR_CASTLE)) {
-			// TODO: Add explosion
+			// Hit with castle
 			checkResult = 1;
 			break;
 		}
 		else if (frame.at<Vec3b>((int)(y + yPositionRadius + 1), (int)(x + xPositionRadius + 1)) == Vec3b(COLOR_ROCK)) {
-			// TODO: Add explosion
+			// Hit with Rock
 			checkResult = 2;
 			break;
 		}
@@ -321,8 +328,15 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 
 			int hitResult = CheckCollision(x, y, frame);
 			if (hitResult == 3) {
-				printf("Ball outside of the Window\n");
+				#ifdef DEBUG
+				printf("Ball outside of the Window - left/right/bottom\n");
+				#endif			
 				break;
+			}
+			else if (hitResult == 4) {
+				#ifdef DEBUG
+				printf("Ball outside of the Window - top\n");
+				#endif
 			}
 			else if ((hitResult == 1) || (hitResult == 2)) {
 				hitCounter++;
@@ -350,8 +364,15 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 
 			int hitResult = CheckCollision(x, y, frame);
 			if (hitResult == 3) {
-				printf("Ball outside of the Window\n");
+				#ifdef DEBUG
+				printf("Ball outside of the Window - left/right/bottom\n");
+				#endif			
 				break;
+			}
+			else if (hitResult == 4) {
+				#ifdef DEBUG
+				printf("Ball outside of the Window - top\n");
+				#endif
 			}
 			else if ((hitResult == 1) || (hitResult == 2)) {
 				hitCounter++;
@@ -369,55 +390,44 @@ void InitGame(Mat frame) {
 	// draw the rock
 	DrawRock(frame);
 
-	// Draw two castle
+	// Draw two castles
 	DrawCastle(frame, 20, groundHeight, false);
 	DrawCastle(frame, WINWIDTH - 20, groundHeight, true);
 }
 
-int UserInput(int** pulver, int** winkel) {
+// User input to change cannon settings
+void UserInput(int** pulver, int** winkel, bool* exit) {
 	int c = waitKeyEx(100);
 	switch (c) {
-		case 13: return 0; break;
-		case 2490368: **pulver += 1; return 1; break; // cursor up
-		case 2621440: **pulver -= 1; return 1; break; // cursor down
-		case 2424832: **winkel += 1; return 1; break; // cursor left
-		case 2555904: **winkel -= 1; return 1; break; // cursor right      
+		case 13: *exit = true; break;		// enter
+		case 2490368: **pulver += 1; break; // cursor up
+		case 2621440: **pulver -= 1; break; // cursor down
+		case 2424832: **winkel += 1; break; // cursor left
+		case 2555904: **winkel -= 1; break; // cursor right      
 	}
 }
 
+// show user dialog to player 1 or 2
 void UserDialog(bool turn, int* pulver, int* winkel) {
-	char spulver[200];
-	char swinkel[200];
-	int exit = 1;
+	char pulverString[200];
+	char winkelString[200];
+	char exitString[] = "Press ENTER to exit menu";
+	string helpString = "Use the arrow keys to change settings.";
+	bool exit = false;
 	do {
 		Mat user(200, 400, CV_8UC3, Scalar(COLOR_BACKGROUND));
-		sprintf_s(spulver, "Pulver: %d", *pulver);
-		sprintf_s(swinkel, "Winkel: %d", *winkel);
-		putText(user,
-			spulver,
-			cvPoint(140, 30),
-			FONT_HERSHEY_COMPLEX_SMALL,
-			1, cvScalar(100, 100, 150),
-			1,
-			CV_AA);
-		putText(user,
-			swinkel,
-			cvPoint(140, 70),
-			FONT_HERSHEY_COMPLEX_SMALL,
-			1, cvScalar(100, 100, 150),
-			1,
-			CV_AA);
-		putText(user,
-			"Press ENTER to exit",
-			cvPoint(80, 130),
-			FONT_HERSHEY_COMPLEX_SMALL,
-			1, cvScalar(100, 100, 150),
-			1,
-			CV_AA);
-		exit = UserInput(&pulver, &winkel);
+		sprintf_s(pulverString, "Pulver: %d", *pulver);
+		sprintf_s(winkelString, "Winkel: %d", *winkel);
+
+		putText(user, pulverString, cvPoint(140, 30), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
+		putText(user, winkelString, cvPoint(140, 70), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
+		putText(user, helpString, cvPoint(35, 120), FONT_HERSHEY_PLAIN, 1, cvScalar(100, 100, 150), 1, CV_AA);
+		putText(user, exitString, cvPoint(40, 150), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
+		
+		UserInput(&pulver, &winkel, &exit);
 		imshow("User Input", user);
 		waitKey(1);
-	} while (exit);
+	} while (!exit);
 	destroyWindow("User Input");
 }
 
@@ -452,25 +462,24 @@ int main() {
 	int winkel2 = 20;
 
 	bool play = true;
-	bool turn = true;
+	bool user2 = true;
 	int round = 1;
 	do {
 		imshow(windowName, frame);
-		if (turn) {
-			turn = false;
-			UserDialog(turn, &pulver2, &winkel2);
-			ShootCanonBall(frame, turn, &pulver2, &winkel2);
+		if (user2) {
+			user2 = false;
+			UserDialog(user2, &pulver2, &winkel2);
+			ShootCanonBall(frame, user2, &pulver2, &winkel2);
 		}
 		else {
-			turn = true;
-			UserDialog(turn, &pulver1, &winkel1);
-			ShootCanonBall(frame, turn, &pulver1, &winkel1);
+			user2 = true;
+			UserDialog(user2, &pulver1, &winkel1);
+			ShootCanonBall(frame, user2, &pulver1, &winkel1);
 		}
 		round++;
-		printf("%d \ttunrn result: %d\n", round, round % 2);
+		//TODO: Add Game exit
 	} while (play);
 
-	// Start Position of Canon Ball
 	waitKey(0);
 	
 	// Close the Window
