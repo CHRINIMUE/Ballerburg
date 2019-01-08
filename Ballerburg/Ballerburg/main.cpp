@@ -2,8 +2,6 @@
 #include <conio.h>
 #include <time.h>
 #include <stdlib.h>
-#include <string>
-#include <sstream>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
