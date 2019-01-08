@@ -2,6 +2,8 @@
 #include <conio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string>
+#include <sstream>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -409,25 +411,36 @@ void UserInput(int** pulver, int** winkel, bool* exit) {
 
 // show user dialog to player 1 or 2
 void UserDialog(bool turn, int* pulver, int* winkel) {
-	char pulverString[200];
-	char winkelString[200];
-	char exitString[] = "Press ENTER to exit menu";
-	string helpString = "Use the arrow keys to change settings.";
 	bool exit = false;
+
 	do {
 		Mat user(200, 400, CV_8UC3, Scalar(COLOR_BACKGROUND));
-		sprintf_s(pulverString, "Pulver: %d", *pulver);
-		sprintf_s(winkelString, "Winkel: %d", *winkel);
+		string pulverString;
+		string winkelString;
+		ostringstream convertPulver;
+		ostringstream convertWinkel;
+		string exitString = "Press ENTER to exit menu";
+		string helpString = "Use the arrow keys to change settings.";
 
+		// convert string and value of pulver/winkel
+		convertPulver << "Pulver " << *pulver;
+		pulverString = convertPulver.str();
+		convertWinkel << "Winkel: " << *winkel;
+		winkelString = convertWinkel.str();
+
+		// print dialog text
 		putText(user, pulverString, cvPoint(140, 30), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
 		putText(user, winkelString, cvPoint(140, 70), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
 		putText(user, helpString, cvPoint(35, 120), FONT_HERSHEY_PLAIN, 1, cvScalar(100, 100, 150), 1, CV_AA);
 		putText(user, exitString, cvPoint(40, 150), FONT_HERSHEY_COMPLEX_SMALL, 1, cvScalar(100, 100, 150), 1, CV_AA);
 		
+		// check user input
 		UserInput(&pulver, &winkel, &exit);
+
 		imshow("User Input", user);
 		waitKey(1);
 	} while (!exit);
+
 	destroyWindow("User Input");
 }
 
