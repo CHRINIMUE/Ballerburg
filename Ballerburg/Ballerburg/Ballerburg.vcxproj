@@ -139,10 +139,12 @@
   <ItemGroup>
     <ClCompile Include="Castle.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mountain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Castle.h" />
     <ClInclude Include="defines.h" />
+    <ClInclude Include="Mountain.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

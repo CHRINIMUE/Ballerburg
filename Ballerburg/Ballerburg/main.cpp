@@ -8,6 +8,7 @@
 
 #include "defines.h"
 #include "Castle.h"
+#include "Mountain.h"
 
 
 using namespace cv;
@@ -18,128 +19,11 @@ int winHeight = WINHEIGHT;
 int winWidth = WINWIDTH;
 
 // Calc the max disctance for random offset -> 0 for x; 1 for y
-int CalcDistance(int ax, int ay, int bx, int by, int counter, int amountPoints, int xy) {
-	int restPoints = amountPoints - counter;	// Calc the remaining Points to generate
-	int maxRand;
 
-	if (restPoints > 1) { 
-		if (xy == 0) { // x cordinate
-			int distance = fabs(bx - ax);
-			maxRand = distance / restPoints;
-		}
-		else { // y cordinate
-			int distance = fabs(ay - by);
-			maxRand = distance / (restPoints + 1);
-		}
-	}
-	else {
-		if (xy == 0) { // x cordinate
-			int distance = fabs(bx - ax);
-			maxRand = (distance  + 1) / 2;
-			if (distance == 0)
-				return 1;
-		}
-		else { // y cordinate
-			int distance = fabs(ay - by);
-			maxRand = (distance + 1) / 2;
-			if (distance == 0)
-				return 1;
-		}
-	}
-
-	#ifdef DEBUG // LOG: Show calculation data
-	printf("y:%d %d,%d x %d,%d \t restPoints=%d \tmaxRand=%d\n", xy, ax, ay, bx, by, restPoints, maxRand);
-	#endif
-
-	return maxRand; // return the max X or Y offset
-}
 
 // Draw the Rock
 void DrawRock(Mat frame) {
-	// Main Variables
-	int groundHeight = GROUND_HEIGHT;	// generate the bottom ground
-	int rockHeight = rand() % ((groundHeight - 100) - (winHeight / 4)) + (winHeight / 4);			// generate the height of the rock
-	int rockLeft = rand() % (WINWIDTH / 3 - 200) + 200;												// generate start of the rock in 1/3 and 150px away from the border
-	int rockRight = rand() % (WINWIDTH - ((WINWIDTH / 3 * 2) + 200)) + ((WINWIDTH / 3 * 2) - 1);	// generate end of the rock in 3/3 and 150px away from the border
-	int rockWidth = rockRight - rockLeft;			// Calc the width (X) of the rock
-	int rockMiddle = (rockWidth / 2) + rockLeft;	// Calc the middle x cordinate of the rock
-	int yDistancePerPoint;							// Max size between two Y points
-	int xDistancePerPoint;							// Max size between two X points
-	int leftPoints = 0;								// Amount of Points set left from the middle
-
-	// draw the ground
-	for (int y = winHeight; y > groundHeight; y--) {
-		for (int x = 0; x < winWidth; x++) {
-			rectangle(frame, Rect(x, y, 1, 1), Scalar(COLOR_ROCK), 1, 8, 0);
-		}
-	}
-
-	// Create the Rock
-	Point rock_points[1][500];
-	int counter = 0;
-	rock_points[0][counter++] = Point(rockLeft, groundHeight); // add left ground point
-
-	// Generate the points between left ground and middle height of the rock
-	while (1) {
-		// calc max distance for X and Y
-		yDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockMiddle, rockHeight, counter - 1, ROCK_POINTS, 1);
-		xDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockMiddle, rockHeight, counter - 1, ROCK_POINTS, 0);
-
-		int offsety = rand() % (yDistancePerPoint); // random offset widht max yDistancePerPoint
-		int offsetx = rand() % (xDistancePerPoint); // random offset widht max xDistancePerPoint
-
-		if (!(counter - 10 >= ROCK_POINTS)) { // TODO: Use only one if
-			if ((offsetx + rock_points[0][counter - 1].x > rockMiddle) || (rock_points[0][counter - 1].y - offsety < rockHeight)) {
-				break; // stop crating points, if reached the middle or the rockHeight
-			}
-			else {
-				// add new generated point
-				rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety);
-				counter++;
-				leftPoints++;
-			}
-		}
-		else {
-			break; // Stop generating points if counter is "-10"
-		}
-	}
-	rock_points[0][counter++] = Point(rockMiddle, rockHeight);
-	// generate points between middle height and right bottom of the rock
-	while (1) {
-		// calc max distance for X and Y
-		yDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockRight, groundHeight, counter - 2 - leftPoints, ROCK_POINTS, 1);
-		xDistancePerPoint = CalcDistance(rock_points[0][counter - 1].x, rock_points[0][counter - 1].y, rockRight, groundHeight, counter - 2 - leftPoints, ROCK_POINTS, 0);
-
-		int offsety = rand() % (yDistancePerPoint)-(yDistancePerPoint + 1);		// random offset with max yDistancePerPoint
-		int offsetx = rand() % (xDistancePerPoint);								// random offset with max xDistancePerPoint
-
-		if (!(counter - 2 - leftPoints - 10 >= ROCK_POINTS)) { // TODO: Use only one if
-			if ((offsetx + rock_points[0][counter - 1].x > rockRight) || (rock_points[0][counter - 1].y - offsety > groundHeight)) {
-				break; // stop crating points, if reached the middle or the rockHeight
-			}
-			else {
-				rock_points[0][counter] = Point(offsetx + rock_points[0][counter - 1].x, rock_points[0][counter - 1].y - offsety); // add new generated point
-				counter++;	// add +1 to counter of points
-			}
-		}
-		else {
-			break; // Stop generating points if counter is "-10"
-		}
-	}
-
-	rock_points[0][counter++] = Point(rockRight, groundHeight);		// add right ground point
-	const Point* pRock[1] = { rock_points[0] };
-	int numberOfPointsRock[] = { counter };							// number of points to draw
-	fillPoly(frame, pRock, numberOfPointsRock, 1, Scalar(COLOR_ROCK), 8);	// draw the rock
-
-#ifdef DEBUG // LOG: 
-printf("groundHeight: %i\n", groundHeight);
-printf("Random rockHeight: %i\n", rockHeight);
-printf("Random rockLeft: %i\n", rockLeft);
-printf("Random rockRight: %i\n", rockRight);
-printf("Calc rockMiddle: %i\n", rockMiddle);
-printf("Nr. of points generated: %d\n", counter - 2);
-#endif	
+	
 }
 
 void DrawCastle(Mat frame, int xPosition, int yPosition, bool flip) {
@@ -305,17 +189,15 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 void InitGame(Mat frame) {
 	int groundHeight = GROUND_HEIGHT;
 	// draw the rock
-	DrawRock(frame);
+	//DrawRock(frame);
+	Mountain m = Mountain();
+	m.draw(frame);
 
 	// Draw two castles
 	Castle c1(20, groundHeight, false);
 	Castle c2(WINWIDTH - 20, groundHeight, true);
 	c1.draw(frame);
 	c2.draw(frame);
-
-
-	//DrawCastle(frame, 20, groundHeight, false);
-	//DrawCastle(frame, WINWIDTH - 20, groundHeight, true);
 }
 
 // User input to change cannon settings
