@@ -5,9 +5,11 @@
 #define WINHEIGHT	800	
 #define WINWIDTH	1200	
 #define GROUND_HEIGHT WINHEIGHT - (WINHEIGHT / 8)
-#define ROCK_POINTS	50				// Amount of points between rock left - rock middle / rock middle - rock left
 
-// Canon settings
+// Mountain Settings
+#define MOUNTAIN_POINTS	50	// Amount of points between rock left - rock middle / rock middle - rock left
+
+// Canon Settings
 #define MAX_CANON_HITS 2
 #define CANON_BALL_RADIUS 5
 

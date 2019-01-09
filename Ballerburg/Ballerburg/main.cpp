@@ -18,18 +18,6 @@ String windowName = GAMENAME;
 int winHeight = WINHEIGHT;
 int winWidth = WINWIDTH;
 
-// Calc the max disctance for random offset -> 0 for x; 1 for y
-
-
-// Draw the Rock
-void DrawRock(Mat frame) {
-	
-}
-
-void DrawCastle(Mat frame, int xPosition, int yPosition, bool flip) {
-	//TODO: REMVOE	
-}
-
 /****************************************
 Possible return values for CheckCollision:
 0:	No Hit
