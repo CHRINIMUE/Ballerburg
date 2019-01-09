@@ -107,8 +107,8 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 				currentPulver -= 0.5;
 				roundCounter = 0;
 			}
-			int distanceY = -currentPulver;
-			int distanceX = fabs(x - xPos);
+			int distanceY = (int)-currentPulver;
+			int distanceX = (int)fabs(x - xPos);
 			y = y + distanceY;
 			#ifdef DEBUG
 			printf("%d\n", distanceY);
@@ -143,8 +143,8 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 				currentPulver -= 0.5;
 				roundCounter = 0;
 			}
-			int distanceY = -currentPulver;
-			int distanceX = fabs(x - xPos);
+			int distanceY = (int)-currentPulver;
+			int distanceX = (int)fabs(x - xPos);
 			y = y + distanceY;
 			#ifdef DEBUG
 			printf("%d\n", distanceY);
@@ -175,15 +175,12 @@ void ShootCanonBall(Mat frame, bool turn, int* pulver, int* winkel) {
 }
 
 void InitGame(Mat frame) {
-	int groundHeight = GROUND_HEIGHT;
-	// draw the rock
-	//DrawRock(frame);
-	Mountain m = Mountain();
+	Mountain m(500);
 	m.draw(frame);
 
 	// Draw two castles
-	Castle c1(20, groundHeight, false);
-	Castle c2(WINWIDTH - 20, groundHeight, true);
+	Castle c1(20, GROUND_HEIGHT, false);
+	Castle c2(WINWIDTH - 20, GROUND_HEIGHT, true);
 	c1.draw(frame);
 	c2.draw(frame);
 }

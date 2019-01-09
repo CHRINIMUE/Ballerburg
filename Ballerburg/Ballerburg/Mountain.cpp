@@ -2,7 +2,13 @@
 
 #include "Mountain.h"
 
-Mountain::Mountain() {
+Mountain::Mountain(int MinHeight) {
+	//MountainHeight = rand() % ((GROUND_HEIGHT - 100) - (WINHEIGHT / 8)) + (WINHEIGHT / 8);
+	MountainHeight = rand() % MinHeight;
+	MountainLeft = rand() % (WINWIDTH / 3 - 200) + 200;
+	MountainRight = rand() % (WINWIDTH - ((WINWIDTH / 3 * 2) + 200)) + ((WINWIDTH / 3 * 2) - 1);
+	MountainMiddle = ((MountainRight - MountainLeft) / 2) + MountainLeft;
+
 	MountainPoints[0][CreatedMountainPoints++] = Point(MountainLeft, GROUND_HEIGHT); // add left ground point
 
 	// Generate the points between left ground and middle height of the rock
